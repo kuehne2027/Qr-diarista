@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>QR Diaristas · KN</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#052A3D">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QR Diaristas">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root{
+    --navy-deep:#031C29;
+    --navy:#052A3D;
+    --navy-soft:#0B3A52;
+    --blue:#0E5C82;
+    --cyan:#28B4E8;
+    --gold:#F0B90B;
+    --gold-soft:#FFD866;
+    --ink:#EAF4F9;
+    --ink-dim:#9FB8C7;
+    --ink-faint:#6E8898;
+    --line:rgba(234,244,249,0.08);
+    --panel:#08334A;
+    --panel-hi:#0C3F59;
+    --radius:16px;
+    --font-display:'Space Grotesk',system-ui,sans-serif;
+    --font-body:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(40,180,232,0.14), transparent 60%),
+      radial-gradient(900px 500px at 110% 0%, rgba(240,185,11,0.08), transparent 55%),
+      var(--navy-deep);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  header{
+    padding:22px 20px 18px;
+    position:sticky; top:0; z-index:20;
+    background:rgba(3,28,41,0.82);
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:11px;}
+  .brand .mark{
+    width:38px;height:38px;border-radius:11px;
+    background:linear-gradient(135deg,var(--cyan),var(--blue));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--navy-deep);
+    box-shadow:0 4px 14px rgba(40,180,232,0.35);
+    flex-shrink:0;
+  }
+  header h1{
+    margin:0;font-family:var(--font-display);font-weight:700;
+    font-size:18px;letter-spacing:-0.01em;line-height:1.1;
+  }
+  header .sub{font-size:12.5px;color:var(--ink-dim);margin-top:2px;letter-spacing:.01em;}
+
+  main{padding:18px 18px 90px;max-width:520px;margin:0 auto;}
+
+  .toolbar{display:flex;gap:9px;margin:18px 0 12px;}
+  .field{
+    flex:1;position:relative;
+  }
+  .field input[type=date],
+  .field input[type=text]{
+    width:100%;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:12px 14px;border-radius:12px;font-size:14px;font-family:var(--font-body);
+    transition:border-color .15s, background .15s;
+  }
+  .field input:focus{outline:none;border-color:var(--cyan);background:var(--panel-hi);}
+  .field input::placeholder{color:var(--ink-faint);}
+  .btn-icon{
+    width:46px;flex-shrink:0;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:12px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;
+    transition:transform .15s, background .15s;
+  }
+  .btn-icon:active{transform:scale(0.92);background:var(--panel-hi);}
+
+  .summary{
+    display:flex;align-items:center;gap:10px;margin:4px 2px 18px;
+    font-size:12.5px;color:var(--ink-dim);
+  }
+  .summary .count{font-family:var(--font-display);font-weight:700;color:var(--ink);font-size:15px;}
+  .pill{font-size:10.5px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.02em;border:1px solid transparent;}
+  .pill.meli{background:rgba(40,180,232,.13);color:var(--cyan);border-color:rgba(40,180,232,.25);}
+  .pill.kn{background:rgba(240,185,11,.13);color:var(--gold-soft);border-color:rgba(240,185,11,.25);}
+
+  .list{display:flex;flex-direction:column;gap:8px;}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:13px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;
+    transition:background .15s, border-color .15s, transform .1s;
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--company-color, var(--ink-faint));opacity:.85;
+  }
+  .card:active{transform:scale(0.985);background:var(--panel-hi);}
+  .avatar{
+    width:40px;height:40px;border-radius:11px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:14px;
+    background:var(--company-color, var(--blue));color:var(--navy-deep);
+  }
+  .info{flex:1;min-width:0;}
+  .name{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.003em;}
+  .meta{font-size:12px;color:var(--ink-dim);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .chev{color:var(--ink-faint);font-size:20px;font-weight:300;flex-shrink:0;}
+
+  .status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .status-dot.pendente{background:var(--ink-faint);}
+  .status-dot.aguardando{background:var(--gold);box-shadow:0 0 8px rgba(240,185,11,.5);}
+  .status-dot.concluido{background:#3DDC84;box-shadow:0 0 8px rgba(61,220,132,.5);}
+
+  .filters{display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+  .filter-chip{
+    flex-shrink:0;font-size:12px;font-weight:600;padding:7px 13px;border-radius:20px;
+    background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);cursor:pointer;
+    transition:.15s;white-space:nowrap;
+  }
+  .filter-chip.active{background:var(--cyan);border-color:var(--cyan);color:var(--navy-deep);}
+
+  .modetabs{display:flex;gap:8px;margin:18px 0 14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px;}
+  .modetab{
+    flex:1;text-align:center;padding:11px 8px;border-radius:10px;cursor:pointer;
+    font-size:13.5px;font-weight:700;color:var(--ink-dim);transition:.15s;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .modetab.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--navy-deep);}
+  .modetab .n{
+    font-size:11px;background:rgba(255,255,255,.18);padding:1px 7px;border-radius:10px;font-weight:700;
+  }
+  .modetab.active .n{background:rgba(3,28,41,.25);}
+  .modetab .lock{font-size:12px;opacity:.7;}
+
+  .locked-panel{
+    text-align:center;padding:56px 26px;color:var(--ink-dim);
+  }
+  .locked-panel .ic{font-size:38px;margin-bottom:16px;opacity:.7;}
+  .locked-panel .big{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .locked-panel .small{font-size:13px;line-height:1.6;}
+  .locked-panel .n{color:var(--gold-soft);font-weight:700;}
+
+  .waiting-panel{
+    margin-top:18px;padding:14px 16px;border-radius:14px;
+    background:rgba(240,185,11,.07);border:1px solid rgba(240,185,11,.22);
+  }
+  .waiting-title{font-size:12.5px;font-weight:700;color:var(--gold-soft);margin-bottom:8px;}
+  .waiting-row{
+    display:flex;justify-content:space-between;gap:10px;padding:6px 0;flex-wrap:wrap;
+    font-size:13px;color:var(--ink-dim);border-top:1px solid rgba(255,255,255,.06);
+  }
+  .waiting-row:first-of-type{border-top:none;}
+  .waiting-row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;}
+  .waiting-time{color:var(--ink-faint);font-size:12px;white-space:nowrap;flex:0 0 auto;}
+
+  .todos-badge{
+    display:inline-block;margin-top:5px;padding:2px 9px;border-radius:8px;
+    font-size:11px;font-weight:700;
+  }
+  .todos-badge.pendente{background:rgba(40,180,232,.15);color:var(--cyan);}
+  .todos-badge.aguardando-horario{background:rgba(240,185,11,.15);color:var(--gold-soft);}
+  .todos-badge.aguardando{background:rgba(240,185,11,.15);color:var(--gold-soft);}
+  .todos-badge.concluido{background:rgba(60,200,120,.15);color:#3ecf8e;}
+  .todos-badge.semgroot{background:rgba(255,255,255,.08);color:var(--ink-faint);}
+
+  .btn-desfazer{
+    flex:0 0 auto;align-self:center;padding:7px 12px;border-radius:10px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+    color:var(--ink-dim);font-size:12px;font-weight:600;cursor:pointer;
+  }
+  .btn-desfazer:active{background:rgba(255,255,255,.12);}
+
+  .empty{
+    text-align:center;color:var(--ink-dim);padding:70px 24px;font-size:14px;line-height:1.65;
+  }
+  .empty .ic{font-size:34px;margin-bottom:14px;opacity:.6;}
+  .empty b{color:var(--ink);}
+
+  .loading{text-align:center;color:var(--ink-dim);padding:50px;font-size:13.5px;}
+  .loading .spin{
+    width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--cyan);
+    margin:0 auto 14px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .install-tip{
+    background:rgba(240,185,11,.09);border:1px solid rgba(240,185,11,.22);color:var(--gold-soft);
+    font-size:12px;padding:11px 13px;border-radius:12px;margin-bottom:16px;display:none;
+    line-height:1.5;
+  }
+  .install-tip.show{display:block;}
+
+  /* ===== QR Modal ===== */
+  .overlay{
+    position:fixed;inset:0;background:rgba(2,16,24,.88);backdrop-filter:blur(6px);
+    display:none;align-items:flex-end;justify-content:center;z-index:100;
+  }
+  .overlay.show{display:flex;}
+  @media (min-width:560px){ .overlay{align-items:center;} }
+
+  .sheet{
+    background:linear-gradient(180deg,#0A3C55,#062639);
+    border:1px solid var(--line);
+    border-radius:24px 24px 0 0;
+    padding:10px 24px 30px;
+    max-width:440px;width:100%;
+    animation:slideUp .28s cubic-bezier(.2,.9,.25,1);
+  }
+  @media (min-width:560px){ .sheet{border-radius:24px;padding-bottom:26px;} }
+  @keyframes slideUp{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+  .sheet-handle{width:36px;height:4px;background:var(--line);border-radius:4px;margin:8px auto 18px;}
+
+  .progress{text-align:center;font-size:11.5px;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;font-weight:600;}
+  .qname{font-family:var(--font-display);font-size:20px;font-weight:700;text-align:center;letter-spacing:-0.01em;margin-bottom:3px;}
+  .qmeta{font-size:12.5px;color:var(--ink-dim);text-align:center;margin-bottom:20px;}
+
+  .qrframe{
+    background:#fff;border-radius:20px;padding:20px;
+    display:flex;justify-content:center;margin-bottom:16px;
+    box-shadow:0 12px 32px rgba(0,0,0,.35);
+  }
+
+  .groot-tag{
+    text-align:center;font-size:13px;color:var(--ink-dim);margin-bottom:18px;
+    font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  }
+  .groot-tag b{color:var(--gold-soft);font-family:var(--font-display);font-weight:700;letter-spacing:.03em;}
+
+  .action-badge{
+    display:inline-flex;align-items:center;gap:6px;margin:0 auto 16px;padding:7px 16px;
+    border-radius:20px;font-size:12.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  }
+  .action-badge-wrap{display:flex;justify-content:center;}
+  .action-badge.entrada{background:rgba(40,180,232,.15);color:var(--cyan);border:1px solid rgba(40,180,232,.3);}
+  .action-badge.saida{background:rgba(240,185,11,.15);color:var(--gold-soft);border:1px solid rgba(240,185,11,.3);}
+  .action-badge.feito{background:rgba(61,220,132,.15);color:#3DDC84;border:1px solid rgba(61,220,132,.3);}
+
+  .confirmbtn{
+    width:100%;padding:15px;border-radius:13px;border:none;
+    background:linear-gradient(135deg,#3DDC84,#1FA85C);color:#04240F;
+    font-size:14.5px;font-weight:700;cursor:pointer;margin-bottom:10px;
+    transition:transform .1s;font-family:var(--font-body);
+  }
+  .confirmbtn:active{transform:scale(0.98);}
+  .confirmbtn:disabled{opacity:.4;}
+
+  .hint{
+    background:rgba(234,244,249,.05);border:1px solid var(--line);
+    color:var(--ink-dim);font-size:12.5px;text-align:center;
+    padding:11px 14px;border-radius:12px;margin-bottom:20px;line-height:1.5;
+  }
+
+  .navrow{display:flex;gap:10px;}
+  .navbtn{
+    flex:1;padding:14px;border-radius:13px;border:1px solid var(--line);
+    background:rgba(234,244,249,.04);color:var(--ink);font-size:14px;font-weight:600;
+    cursor:pointer;transition:background .15s, transform .1s;font-family:var(--font-body);
+  }
+  .navbtn:active{transform:scale(0.97);}
+  .navbtn:disabled{opacity:.3;cursor:default;}
+  .navbtn:not(:disabled):active{background:rgba(234,244,249,.09);}
+  .navbtn.primary{
+    background:linear-gradient(135deg,var(--cyan),var(--blue));color:var(--navy-deep);border:none;
+  }
+  .closebtn{
+    width:100%;margin-top:10px;background:transparent;border:none;color:var(--ink-faint);
+    font-size:13px;padding:10px;cursor:pointer;font-family:var(--font-body);
+  }
+
+  .sound-toggle{
+    position:fixed;top:16px;right:16px;z-index:30;
+    width:38px;height:38px;border-radius:50%;
+    background:rgba(234,244,249,.08);border:1px solid var(--line);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;
+  }
+  .sound-toggle.off{color:var(--ink-faint);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">KN</div>
+    <div>
+      <h1>QR Diaristas</h1>
+      <div class="sub">Bata o ponto dos diaristas do dia</div>
+    </div>
+  </div>
+</header>
+
+<button class="sound-toggle" id="soundToggle" title="Ligar/desligar voz e som">&#128266;</button>
+
+<main>
+  <div class="install-tip" id="installTip">
+    &#9733; Toque no menu do navegador e escolha <b>"Adicionar à tela inicial"</b> para instalar este app no seu celular.
+  </div>
+
+  <div class="toolbar">
+    <div class="field"><input type="date" id="dataFiltro"></div>
+    <button class="btn-icon" id="btnRefresh" title="Atualizar">&#8635;</button>
+  </div>
+  <div class="toolbar">
+    <div class="field"><input type="text" id="busca" placeholder="Buscar por nome ou GROOT ID"></div>
+  </div>
+
+  <div class="modetabs" id="modeTabs">
+    <div class="modetab active" data-m="entrada">Entrada <span class="n" id="nEntrada">0</span></div>
+    <div class="modetab" data-m="saida">Saída <span class="n" id="nSaida">0</span></div>
+    <div class="modetab" data-m="todos">Todos <span class="n" id="nTodos">0</span></div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="list" id="lista">
+    <div class="loading"><div class="spin"></div>Carregando diaristas do dia&hellip;</div>
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="progress" id="mProgress"></div>
+    <div class="qname" id="mNome"></div>
+    <div class="qmeta" id="mMeta"></div>
+    <div class="action-badge-wrap"><div class="action-badge" id="mBadge"></div></div>
+    <div class="qrframe"><div id="mQr"></div></div>
+    <div class="groot-tag">GROOT ID <b id="mGroot"></b></div>
+    <div class="hint" id="mHint">Apresente este código no terminal de ponto.</div>
+    <button class="confirmbtn" id="btnConfirm">✓ Confirmar</button>
+    <div class="navrow">
+      <button class="navbtn" id="btnPrev">&#8592; Anterior</button>
+      <button class="navbtn primary" id="btnNext">Próximo &#8594;</button>
+    </div>
+    <button class="closebtn" id="btnClose">Fechar</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://cnpcsovjomonctbggbac.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_1lqP4jYYMR96Aq8DX-DSHA_JKcGESRt';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const COMPANY_COLOR = { MELI:'#28B4E8', KN:'#F0B90B' };
+
+let REGISTROS = [];
+let FILTRADOS = [];
+let filtroTexto = '';
+let modo = 'entrada'; // 'entrada' ou 'saida'
+let currentIdx = -1;
+
+// Minutos de antecedência que uma pessoa pode bater o ponto antes do horário previsto do turno
+// dela (ex: 15 = pode bater a partir de 15 min antes do horário).
+const TOLERANCIA_ANTECIPACAO_MIN = 15;
+
+function statusDe(r){
+  if(!r.qr_entrada_batida_em) return 'pendente';
+  if(!r.qr_saida_batida_em) return 'aguardando';
+  return 'concluido';
+}
+
+// Compara a hora atual com o horário previsto (r.horario_entrada, formato "HH:MM") do turno da
+// pessoa, considerando a tolerância de antecedência. Se não houver horário cadastrado, libera
+// sempre (não trava quem não tem essa informação preenchida).
+function dentroDoHorario(r){
+  const hp = (r.horario_entrada||'').trim();
+  if(!hp || !/^\d{1,2}:\d{2}/.test(hp)) return true;
+  const [hh, mm] = hp.split(':').map(Number);
+  const agora = new Date();
+  const previsto = new Date(agora);
+  previsto.setHours(hh, mm, 0, 0);
+  previsto.setMinutes(previsto.getMinutes() - TOLERANCIA_ANTECIPACAO_MIN);
+  return agora >= previsto;
+}
+
+function todayISO(){
+  const d = new Date();
+  const tz = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - tz*60000);
+  return local.toISOString().slice(0,10);
+}
+function fmtDataBR(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function iniciais(nome){
+  if(!nome) return '?';
+  const partes = nome.trim().split(/\s+/);
+  if(partes.length===1) return partes[0].slice(0,2).toUpperCase();
+  return (partes[0][0]+partes[partes.length-1][0]).toUpperCase();
+}
+function nomeCurto(nome){
+  if(!nome) return '';
+  const todas = nome.trim().split(/\s+/);
+  // Ignora partes abreviadas (ex: "D", "S", "D.") — fala só nomes por extenso
+  const completas = todas.filter(p=>p.replace(/\./g,'').length>1);
+  const escolhidas = (completas.length ? completas : todas).slice(0,2);
+  return escolhidas.join(' ');
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ===== Som e voz ===== */
+let somLigado = true;
+try{ somLigado = localStorage.getItem('kn-qr-som') !== 'off'; }catch(e){}
+
+function atualizarBotaoSom(){
+  const btn = document.getElementById('soundToggle');
+  btn.textContent = somLigado ? '🔊' : '🔇';
+  btn.classList.toggle('off', !somLigado);
+}
+
+let audioCtx = null;
+function playBeep(){
+  if(!somLigado) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  }catch(e){}
+}
+
+let vozPt = null;
+function carregarVoz(){
+  if(!('speechSynthesis' in window)) return;
+  const vozes = window.speechSynthesis.getVoices();
+  vozPt = vozes.find(v=>v.lang && v.lang.toLowerCase().startsWith('pt')) || null;
+}
+if('speechSynthesis' in window){
+  carregarVoz();
+  window.speechSynthesis.onvoiceschanged = carregarVoz;
+}
+
+function falar(texto){
+  if(!somLigado) return;
+  if(!('speechSynthesis' in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = 'pt-BR';
+    if(vozPt) u.voice = vozPt;
+    u.rate = 1.05;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+document.getElementById('soundToggle').addEventListener('click', ()=>{
+  somLigado = !somLigado;
+  try{ localStorage.setItem('kn-qr-som', somLigado ? 'on' : 'off'); }catch(e){}
+  atualizarBotaoSom();
+  if(somLigado) falar('Som ativado');
+});
+atualizarBotaoSom();
+
+async function carregar(){
+  const data = document.getElementById('dataFiltro').value || todayISO();
+  const lista = document.getElementById('lista');
+  const summary = document.getElementById('summary');
+  lista.innerHTML = '<div class="loading"><div class="spin"></div>Carregando diaristas do dia&hellip;</div>';
+  summary.innerHTML = '';
+
+  try{
+    const { data: rows, error } = await sb
+      .from('historico_diarias')
+      .select('*')
+      .eq('data', data)
+      .order('nome', { ascending: true });
+
+    if(error) throw error;
+
+    const vistos = new Set();
+    let registros = (rows||[]).filter(r=>{
+      const key = r.diarista_id || r.groot_id || r.cpf || r.nome;
+      if(vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    });
+
+    // Busca os dados mais atuais de cada diarista (nome, GROOT ID, empresa, cargo)
+    // direto do Banco de Diaristas, para não depender da "foto" salva no lançamento
+    // do dia — assim, se o GROOT ID for completado depois, já aparece atualizado aqui.
+    const ids = [...new Set(registros.map(r=>r.diarista_id).filter(Boolean))];
+    if(ids.length){
+      const { data: diaristasAtuais, error: errDiaristas } = await sb
+        .from('diaristas')
+        .select('id, nome, groot_id, empresa, cargo, cpf')
+        .in('id', ids);
+      if(!errDiaristas && diaristasAtuais){
+        const mapa = {};
+        diaristasAtuais.forEach(d=>{ mapa[d.id] = d; });
+        registros = registros.map(r=>{
+          const atual = r.diarista_id ? mapa[r.diarista_id] : null;
+          if(!atual) return r;
+          return {
+            ...r,
+            nome: atual.nome || r.nome,
+            groot_id: atual.groot_id || r.groot_id,
+            empresa: atual.empresa || r.empresa,
+            cargo: atual.cargo || r.cargo,
+            cpf: atual.cpf || r.cpf,
+          };
+        });
+      }
+    }
+
+    REGISTROS = registros;
+    renderLista();
+  }catch(err){
+    lista.innerHTML = `<div class="empty"><div class="ic">&#9888;</div>Erro ao carregar dados do banco.<br><small>${escapeHtml((err && err.message) || err)}</small></div>`;
+  }
+}
+
+function renderLista(){
+  const lista = document.getElementById('lista');
+  const summary = document.getElementById('summary');
+  const q = filtroTexto.trim().toLowerCase();
+
+  // Considera apenas quem tem GROOT ID (só esses conseguem gerar QR)
+  const comGroot = REGISTROS.filter(r=>r.groot_id);
+  const todosPendentesEntrada = comGroot.filter(r=>statusDe(r)==='pendente');
+  // Só libera pra bater entrada quem já chegou no horário previsto do turno dela.
+  const pendentesEntrada = todosPendentesEntrada.filter(dentroDoHorario);
+  const aguardandoHorario = todosPendentesEntrada.filter(r=>!dentroDoHorario(r))
+    .sort((a,b)=>(a.horario_entrada||'').localeCompare(b.horario_entrada||''));
+  const aguardandoSaida = comGroot.filter(r=>statusDe(r)==='aguardando');
+  const concluidos = comGroot.filter(r=>statusDe(r)==='concluido');
+
+  // Atualiza contadores das abas
+  document.getElementById('nEntrada').textContent = pendentesEntrada.length;
+
+  // Saída libera assim que todo mundo que JÁ deveria ter chegado bateu a entrada — não trava
+  // esperando turnos futuros (ex: T3 às 22h) que ainda nem começaram.
+  const saidaLiberada = comGroot.length>0 && pendentesEntrada.length===0;
+  const tabSaida = document.querySelector('.modetab[data-m="saida"]');
+  tabSaida.innerHTML = saidaLiberada
+    ? `Saída <span class="n">${aguardandoSaida.length}</span>`
+    : `&#128274; Saída`;
+
+  const totalMeli = REGISTROS.filter(r=>r.empresa==='MELI').length;
+  const totalKn = REGISTROS.filter(r=>r.empresa==='KN').length;
+  summary.innerHTML = `<span class="count">${REGISTROS.length}</span> diaristas hoje <span class="pill meli">MELI ${totalMeli}</span><span class="pill kn">KN ${totalKn}</span> <span style="color:var(--ink-faint)">· ${concluidos.length} concluídos</span>`;
+  document.getElementById('nTodos').textContent = REGISTROS.length;
+
+  // Aba TODOS: lista corrida de todo mundo lançado no dia (com ou sem GROOT ID), pra conferir
+  // se subiu todo mundo — não depende de horário nem trava esperando nada. Cada linha mostra o
+  // status atual e, se já foi batido, um botão "Desfazer" pra voltar pra pendente (útil pra
+  // corrigir teste/engano sem precisar mexer direto no banco).
+  if(modo==='todos'){
+    const todosOrdenados = [...REGISTROS].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+    FILTRADOS = todosOrdenados.filter(r=>{
+      if(!q) return true;
+      return (r.nome||'').toLowerCase().includes(q) || (r.groot_id||'').toLowerCase().includes(q);
+    });
+    if(FILTRADOS.length===0){
+      lista.innerHTML = `<div class="empty"><div class="ic">&#128269;</div>Nenhum diarista encontrado.</div>`;
+      return;
+    }
+    const statusInfo = r=>{
+      if(!r.groot_id) return {label:'Sem GROOT ID', cls:'todos-badge semgroot'};
+      const st = statusDe(r);
+      if(st==='pendente') return dentroDoHorario(r)
+        ? {label:'Pendente entrada', cls:'todos-badge pendente'}
+        : {label:'Aguardando horário', cls:'todos-badge aguardando-horario'};
+      if(st==='aguardando') return {label:'Aguardando saída', cls:'todos-badge aguardando'};
+      return {label:'Concluído', cls:'todos-badge concluido'};
+    };
+    lista.innerHTML = FILTRADOS.map((r,idx)=>{
+      const color = COMPANY_COLOR[r.empresa] || 'var(--ink-faint)';
+      const info = statusInfo(r);
+      const podeDesfazer = r.qr_entrada_batida_em || r.qr_saida_batida_em;
+      return `
+      <div class="card" style="--company-color:${color}">
+        <div class="avatar" style="--company-color:${color}">${iniciais(r.nome)}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(r.nome||'-')}</div>
+          <div class="meta">GROOT ${escapeHtml(r.groot_id||'-')} &nbsp;·&nbsp; ${escapeHtml(r.turno||'-')}${r.horario_entrada?' &nbsp;·&nbsp; '+escapeHtml(r.horario_entrada):''}${r.empresa?' &nbsp;·&nbsp; '+escapeHtml(r.empresa):''}</div>
+          <span class="${info.cls}">${info.label}</span>
+        </div>
+        ${podeDesfazer ? `<button class="btn-desfazer" data-idx="${idx}">Desfazer</button>` : ''}
+      </div>`;
+    }).join('');
+    lista.querySelectorAll('.btn-desfazer').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        desfazerBatida(FILTRADOS[parseInt(btn.dataset.idx)]);
+      });
+    });
+    return;
+  }
+
+  // Modo SAÍDA travado até todo mundo que já deveria ter chegado bater a entrada
+  if(modo==='saida' && !saidaLiberada){
+    lista.innerHTML = `
+      <div class="locked-panel">
+        <div class="ic">&#128274;</div>
+        <div class="big">Saída ainda bloqueada</div>
+        <div class="small">Faltam <span class="n">${pendentesEntrada.length}</span> diarista(s) já no horário bater a <b>entrada</b> antes de liberar a saída.<br>Termine a aba Entrada primeiro.</div>
+      </div>`;
+    FILTRADOS = [];
+    return;
+  }
+
+  const base = modo==='entrada' ? pendentesEntrada : aguardandoSaida;
+
+  FILTRADOS = base.filter(r=>{
+    if(!q) return true;
+    return (r.nome||'').toLowerCase().includes(q) || (r.groot_id||'').toLowerCase().includes(q);
+  });
+
+  const aguardandoHtml = (modo==='entrada' && aguardandoHorario.length)
+    ? `<div class="waiting-panel">
+        <div class="waiting-title">&#8987; Aguardando horário (${aguardandoHorario.length})</div>
+        ${aguardandoHorario.map(r=>`<div class="waiting-row">
+            <span>${escapeHtml(r.nome||'-')}</span>
+            <span class="waiting-time">${escapeHtml(r.turno||'-')} · libera às ${escapeHtml(r.horario_entrada||'-')}</span>
+          </div>`).join('')}
+      </div>`
+    : '';
+
+  if(FILTRADOS.length===0){
+    const msg = modo==='entrada'
+      ? (aguardandoHorario.length
+          ? 'Ninguém no horário de bater entrada agora.'
+          : '<b>Todas as entradas de hoje já foram batidas.</b><br>Vá para a aba Saída quando for a hora.')
+      : '<b>Todas as saídas já foram batidas.</b><br>Jornada do dia concluída para todos.';
+    lista.innerHTML = `<div class="empty"><div class="ic">${aguardandoHorario.length?'&#8987;':'&#10003;'}</div>${msg}</div>${aguardandoHtml}`;
+    return;
+  }
+
+  lista.innerHTML = FILTRADOS.map((r,idx)=>{
+    const color = COMPANY_COLOR[r.empresa] || 'var(--ink-faint)';
+    return `
+    <div class="card" style="--company-color:${color}" data-idx="${idx}">
+      <div class="avatar" style="--company-color:${color}">${iniciais(r.nome)}</div>
+      <div class="info">
+        <div class="name">${escapeHtml(r.nome||'-')}</div>
+        <div class="meta">GROOT ${escapeHtml(r.groot_id||'-')} &nbsp;·&nbsp; ${escapeHtml(r.turno||'-')}${r.empresa?' &nbsp;·&nbsp; '+escapeHtml(r.empresa):''}</div>
+      </div>
+      <div class="chev">&#8250;</div>
+    </div>`;
+  }).join('') + aguardandoHtml;
+
+  lista.querySelectorAll('.card').forEach(el=>{
+    el.addEventListener('click', ()=> abrirQr(parseInt(el.dataset.idx)));
+  });
+}
+
+document.getElementById('modeTabs').addEventListener('click', (e)=>{
+  const tab = e.target.closest('.modetab');
+  if(!tab) return;
+  modo = tab.dataset.m;
+  document.querySelectorAll('.modetab').forEach(t=>t.classList.toggle('active', t===tab));
+  renderLista();
+});
+
+function abrirQr(idx){
+  const r = FILTRADOS[idx];
+  if(!r) return;
+  if(!r.groot_id){
+    alert('Este diarista não possui GROOT ID cadastrado. Complete o cadastro no Banco de Diaristas primeiro.');
+    return;
+  }
+  currentIdx = idx;
+  renderQr();
+  document.getElementById('overlay').classList.add('show');
+}
+
+function renderQr(){
+  const r = FILTRADOS[currentIdx];
+  if(!r) return;
+  const st = statusDe(r);
+
+  document.getElementById('mProgress').textContent = `${currentIdx+1} de ${FILTRADOS.length}`;
+  document.getElementById('mNome').textContent = r.nome || '-';
+  document.getElementById('mMeta').textContent = `${r.turno||'-'} · ${r.empresa||'-'} · ${fmtDataBR(r.data)}`;
+  document.getElementById('mGroot').textContent = r.groot_id;
+  const qbox = document.getElementById('mQr');
+  qbox.innerHTML = '';
+  new QRCode(qbox, { text: r.groot_id, width: 190, height: 190, colorDark:'#031C29', colorLight:'#ffffff' });
+
+  const badge = document.getElementById('mBadge');
+  const hint = document.getElementById('mHint');
+  const btnConfirm = document.getElementById('btnConfirm');
+
+  if(st==='pendente'){
+    badge.className = 'action-badge entrada';
+    badge.textContent = 'Bater ENTRADA';
+    hint.textContent = 'Apresente este código no terminal de ponto para registrar a entrada.';
+    btnConfirm.textContent = '✓ Confirmar entrada';
+    btnConfirm.disabled = false;
+    btnConfirm.onclick = ()=> confirmarBatida(r, 'entrada');
+  }else if(st==='aguardando'){
+    badge.className = 'action-badge saida';
+    badge.textContent = 'Bater SAÍDA';
+    hint.textContent = 'Apresente este código no terminal de ponto para registrar a saída.';
+    btnConfirm.textContent = '✓ Confirmar saída';
+    btnConfirm.disabled = false;
+    btnConfirm.onclick = ()=> confirmarBatida(r, 'saida');
+  }else{
+    badge.className = 'action-badge feito';
+    badge.textContent = '✓ Jornada concluída';
+    hint.textContent = 'Entrada e saída já foram confirmadas para este diarista hoje.';
+    btnConfirm.textContent = '✓ Concluído';
+    btnConfirm.disabled = true;
+    btnConfirm.onclick = null;
+  }
+
+  document.getElementById('btnPrev').disabled = currentIdx<=0;
+  const btnNext = document.getElementById('btnNext');
+  if(currentIdx>=FILTRADOS.length-1){
+    btnNext.textContent = 'Concluir';
+    btnNext.onclick = fecharModal;
+  }else{
+    btnNext.innerHTML = 'Próximo &#8594;';
+    btnNext.onclick = ()=>{
+      currentIdx++;
+      playBeep();
+      const prox = FILTRADOS[currentIdx];
+      falar(prox ? nomeCurto(prox.nome) : 'Próximo');
+      renderQr();
+    };
+  }
+}
+
+async function confirmarBatida(registro, tipo){
+  const btnConfirm = document.getElementById('btnConfirm');
+  btnConfirm.disabled = true;
+  btnConfirm.textContent = 'Salvando...';
+
+  const campo = tipo==='entrada' ? 'qr_entrada_batida_em' : 'qr_saida_batida_em';
+  const agora = new Date().toISOString();
+
+  // Parte 1: salvar no banco. Só aqui mostramos erro de "não foi possível salvar".
+  try{
+    const { error } = await sb
+      .from('historico_diarias')
+      .update({ [campo]: agora })
+      .eq('id', registro.id);
+    if(error) throw error;
+  }catch(err){
+    alert('Não foi possível salvar. Verifique a conexão e tente novamente.\n' + ((err && err.message) || err));
+    btnConfirm.disabled = false;
+    renderQr();
+    return;
+  }
+
+  // Parte 2: já salvou com sucesso — atualiza a tela. Erro aqui não deve
+  // ser confundido com falha ao salvar (o dado já está seguro no banco).
+  try{
+    REGISTROS = REGISTROS.map(r=> r.id===registro.id ? {...r, [campo]: agora} : r);
+    playBeep();
+    renderLista();
+    const label = tipo==='entrada' ? 'Entrada registrada' : 'Saída registrada';
+    if(FILTRADOS.length===0){
+      falar(label + '. Tudo concluído.');
+      fecharModal();
+    }else{
+      if(currentIdx>=FILTRADOS.length) currentIdx = FILTRADOS.length-1;
+      const prox = FILTRADOS[currentIdx];
+      falar(`${label}. Próximo, ${nomeCurto(prox.nome)}.`);
+      renderQr();
+    }
+  }catch(err){
+    // O registro já foi salvo com sucesso; só a atualização da tela falhou.
+    // Recarrega tudo do banco para garantir que a tela volte a ficar consistente.
+    console.error('Erro ao atualizar a tela após salvar:', err);
+    carregar();
+  }
+}
+
+function fecharModal(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// Zera as batidas (entrada e/ou saída) de um diarista, voltando ele pra lista de "pendente
+// entrada". Usa isso pra desfazer um teste ou um clique errado — pede confirmação porque apaga
+// o horário registrado.
+async function desfazerBatida(registro){
+  if(!registro) return;
+  const jaTem = [];
+  if(registro.qr_entrada_batida_em) jaTem.push('entrada');
+  if(registro.qr_saida_batida_em) jaTem.push('saída');
+  const ok = confirm(`Desfazer a ${jaTem.join(' e ')} de ${registro.nome}?\nEla volta pra lista de pendente entrada.`);
+  if(!ok) return;
+  try{
+    const { error } = await sb
+      .from('historico_diarias')
+      .update({ qr_entrada_batida_em: null, qr_saida_batida_em: null })
+      .eq('id', registro.id);
+    if(error) throw error;
+    REGISTROS = REGISTROS.map(r=> r.id===registro.id ? {...r, qr_entrada_batida_em:null, qr_saida_batida_em:null} : r);
+    renderLista();
+  }catch(err){
+    alert('Não foi possível desfazer. Verifique a conexão e tente novamente.\n' + ((err && err.message) || err));
+  }
+}
+
+document.getElementById('btnPrev').addEventListener('click', ()=>{
+  if(currentIdx>0){
+    currentIdx--;
+    playBeep();
+    const ant = FILTRADOS[currentIdx];
+    falar(ant ? nomeCurto(ant.nome) : 'Anterior');
+    renderQr();
+  }
+});
+document.getElementById('btnClose').addEventListener('click', fecharModal);
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id==='overlay') fecharModal();
+});
+
+document.getElementById('busca').addEventListener('input', (e)=>{
+  filtroTexto = e.target.value;
+  renderLista();
+});
+document.getElementById('btnRefresh').addEventListener('click', carregar);
+document.getElementById('dataFiltro').addEventListener('change', carregar);
+
+if(!window.matchMedia('(display-mode: standalone)').matches){
+  document.getElementById('installTip').classList.add('show');
+}
+
+document.getElementById('dataFiltro').value = todayISO();
+carregar();
+// Pausa a atualização automática enquanto o QR está aberto na tela, para não
+// embaralhar a fila de confirmação no meio do processo de bater ponto.
+setInterval(()=>{
+  const modalAberto = document.getElementById('overlay').classList.contains('show');
+  if(!modalAberto) carregar();
+}, 30000);
+
+// Registra o service worker — necessário para o Android reconhecer
+// este app como instalável de verdade (modo tela cheia, sem barra do navegador).
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
