@@ -358,9 +358,15 @@
 </div>
 
 <script>
-const SUPABASE_URL = 'https://cnpcsovjomonctbggbac.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_1lqP4jYYMR96Aq8DX-DSHA_JKcGESRt';
+// © 2026 Isis Costa de Mello · QR Diaristas — cópia para OUTRA UNIDADE
+// Ligado ao mesmo banco e ao mesmo prefixo do Controle de Diaristas desta unidade.
+const SUPABASE_URL = 'https://wimqujskqgabjboihiei.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_9fcTqUHHJK8R3ebe_l1lXQ_LQwmWWlI';
+const TABELA_PREFIXO = 'u2_';   // tem que ser igual ao do Controle de Diaristas da unidade
+const TB = t => TABELA_PREFIXO + t;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Colunas públicas (o CPF não é liberado para quem não é admin).
+const COLS_HIST = 'id,diarista_id,data,dia_semana,turno,horario_entrada,nome,groot_id,empresa,cargo,ldap,qr_entrada_batida_em,qr_saida_batida_em,created_at,observacao';
 
 const COMPANY_COLOR = { MELI:'#28B4E8', KN:'#F0B90B' };
 
@@ -425,7 +431,7 @@ function escapeHtml(s){
 
 /* ===== Som e voz ===== */
 let somLigado = true;
-try{ somLigado = localStorage.getItem('kn-qr-som') !== 'off'; }catch(e){}
+try{ somLigado = localStorage.getItem('kn-qr-som-u2') !== 'off'; }catch(e){}
 
 function atualizarBotaoSom(){
   const btn = document.getElementById('soundToggle');
@@ -478,7 +484,7 @@ function falar(texto){
 
 document.getElementById('soundToggle').addEventListener('click', ()=>{
   somLigado = !somLigado;
-  try{ localStorage.setItem('kn-qr-som', somLigado ? 'on' : 'off'); }catch(e){}
+  try{ localStorage.setItem('kn-qr-som-u2', somLigado ? 'on' : 'off'); }catch(e){}
   atualizarBotaoSom();
   if(somLigado) falar('Som ativado');
 });
@@ -493,8 +499,8 @@ async function carregar(){
 
   try{
     const { data: rows, error } = await sb
-      .from('historico_diarias')
-      .select('*')
+      .from(TB('historico_diarias'))
+      .select(COLS_HIST)
       .eq('data', data)
       .order('nome', { ascending: true });
 
@@ -514,8 +520,8 @@ async function carregar(){
     const ids = [...new Set(registros.map(r=>r.diarista_id).filter(Boolean))];
     if(ids.length){
       const { data: diaristasAtuais, error: errDiaristas } = await sb
-        .from('diaristas')
-        .select('id, nome, groot_id, empresa, cargo, cpf')
+        .from(TB('diaristas'))
+        .select('id, nome, groot_id, empresa, cargo')
         .in('id', ids);
       if(!errDiaristas && diaristasAtuais){
         const mapa = {};
@@ -529,7 +535,6 @@ async function carregar(){
             groot_id: atual.groot_id || r.groot_id,
             empresa: atual.empresa || r.empresa,
             cargo: atual.cargo || r.cargo,
-            cpf: atual.cpf || r.cpf,
           };
         });
       }
@@ -765,7 +770,7 @@ async function confirmarBatida(registro, tipo){
   // Parte 1: salvar no banco. Só aqui mostramos erro de "não foi possível salvar".
   try{
     const { error } = await sb
-      .from('historico_diarias')
+      .from(TB('historico_diarias'))
       .update({ [campo]: agora })
       .eq('id', registro.id);
     if(error) throw error;
@@ -816,7 +821,7 @@ async function desfazerBatida(registro){
   if(!ok) return;
   try{
     const { error } = await sb
-      .from('historico_diarias')
+      .from(TB('historico_diarias'))
       .update({ qr_entrada_batida_em: null, qr_saida_batida_em: null })
       .eq('id', registro.id);
     if(error) throw error;
