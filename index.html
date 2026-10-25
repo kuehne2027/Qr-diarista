@@ -358,11 +358,11 @@
 </div>
 
 <script>
-// © 2026 Isis Costa de Mello · QR Diaristas — cópia para OUTRA UNIDADE
-// Ligado ao mesmo banco e ao mesmo prefixo do Controle de Diaristas desta unidade.
+// © 2026 Isis Costa de Mello · QR Diaristas — unidade principal
+// Ligado ao banco novo do Controle de Diaristas (mesmo projeto Supabase).
 const SUPABASE_URL = 'https://wimqujskqgabjboihiei.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9fcTqUHHJK8R3ebe_l1lXQ_LQwmWWlI';
-const TABELA_PREFIXO = 'u2_';   // tem que ser igual ao do Controle de Diaristas da unidade
+const TABELA_PREFIXO = '';   // unidade principal: tabelas sem prefixo
 const TB = t => TABELA_PREFIXO + t;
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Colunas públicas (o CPF não é liberado para quem não é admin).
@@ -431,7 +431,7 @@ function escapeHtml(s){
 
 /* ===== Som e voz ===== */
 let somLigado = true;
-try{ somLigado = localStorage.getItem('kn-qr-som-u2') !== 'off'; }catch(e){}
+try{ somLigado = localStorage.getItem('kn-qr-som') !== 'off'; }catch(e){}
 
 function atualizarBotaoSom(){
   const btn = document.getElementById('soundToggle');
@@ -484,7 +484,7 @@ function falar(texto){
 
 document.getElementById('soundToggle').addEventListener('click', ()=>{
   somLigado = !somLigado;
-  try{ localStorage.setItem('kn-qr-som-u2', somLigado ? 'on' : 'off'); }catch(e){}
+  try{ localStorage.setItem('kn-qr-som', somLigado ? 'on' : 'off'); }catch(e){}
   atualizarBotaoSom();
   if(somLigado) falar('Som ativado');
 });
