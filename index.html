@@ -594,7 +594,7 @@ main{padding:12px 12px 60px!important}
 <body>
 <header class="dash-hero"><div class="hero-topline"><div class="hero-brand"><span class="hero-anchor">⚓</span><strong>KUEHNE+NAGEL</strong></div></div><div class="hero-heading">Identificação Digital <em>• QR</em></div><div class="hero-swoosh"></div></header>
 <button class="sound-toggle" hidden="" id="soundToggle" title="Ligar/desligar voz e som">🔊</button>
-<main><div class="demo-safety">● DEMO · dados fictícios</div><div class="install-tip" hidden="" id="installTip"></div><section class="voice-test" style="display:none"><select id="voiceChoice"></select><button id="testVoice"></button><button id="testBeep"></button><div id="voiceStatus"></div></section>
+<main><div class="install-tip" hidden="" id="installTip"></div><section class="voice-test" style="display:none"><select id="voiceChoice"></select><button id="testVoice"></button><button id="testBeep"></button><div id="voiceStatus"></div></section>
 <div class="section-head"><div><h2>Controle de Presença</h2></div></div>
 <div class="toolbar">
 <div class="field"><input id="dataFiltro" type="date"/></div>
@@ -635,8 +635,7 @@ main{padding:12px 12px 60px!important}
 <script>
 const SUPABASE_URL = 'https://wimqujskqgabjboihiei.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9fcTqUHHJK8R3ebe_l1lXQ_LQwmWWlI';
-// DEMONSTRAÇÃO: sem conexão com Supabase e sem gravações reais.
-const sb = null;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COMPANY_COLOR = { MELI:'#28B4E8', KN:'#F0B90B' };
 
@@ -786,30 +785,62 @@ document.getElementById('soundToggle').addEventListener('click', ()=>{
 });
 atualizarBotaoSom();
 
-const NOMES_DEMO = [
- ['Ana Carolina Ribeiro','MELI','05:00'],['Bruno Henrique Souza','KN','05:00'],
- ['Camila Oliveira Santos','MELI','06:00'],['Daniel Ferreira Lima','KN','06:00'],
- ['Eduarda Martins Costa','MELI','08:00'],['Felipe Almeida Rocha','KN','08:00'],
- ['Gabriela Pereira','MELI','05:00'],['Henrique Barbosa','KN','06:00'],
- ['Isabela Gomes','MELI','08:00'],['João Pedro Nunes','KN','05:00'],
- ['Larissa Monteiro','MELI','06:00'],['Marcos Vinícius Alves','KN','08:00']
-];
-let DEMO_REGISTROS = NOMES_DEMO.map(([nome,empresa,horario_entrada],i)=>({
- id:'demo-'+(i+1), nome, empresa, horario_entrada:'', turno:horario_entrada,
- groot_id:String(900001+i), data:todayISO(),
- qr_entrada_batida_em:null,qr_saida_batida_em:null
-}));
-// Registros fictícios para demonstrar a tabela. As próximas batidas continuam editáveis.
-const DATA_DEMO = todayISO();
-function horarioFicticio(hhmm){return new Date(DATA_DEMO+'T'+hhmm+':00').toISOString();}
-[['demo-1','05:00'],['demo-2','05:02'],['demo-3','05:03'],['demo-4','05:04']].forEach(([id,h])=>{
- const r=DEMO_REGISTROS.find(x=>x.id===id);if(r)r.qr_entrada_batida_em=horarioFicticio(h);
-});
-const rSaida=DEMO_REGISTROS.find(x=>x.id==='demo-3');if(rSaida)rSaida.qr_saida_batida_em=horarioFicticio('12:31');
-function carregar(){
- const data=document.getElementById('dataFiltro').value || todayISO();
- REGISTROS=DEMO_REGISTROS.map(r=>({...r,data}));
- renderLista();
+async function carregar(){
+  const data = document.getElementById('dataFiltro').value || todayISO();
+  const lista = document.getElementById('lista');
+  const summary = document.getElementById('summary');
+  lista.innerHTML = '<div class="loading"><div class="spin"></div>Carregando diaristas do dia&hellip;</div>';
+  summary.innerHTML = '';
+
+  try{
+    const { data: rows, error } = await sb
+      .from('historico_diarias')
+      .select('*')
+      .eq('data', data)
+      .order('nome', { ascending: true });
+
+    if(error) throw error;
+
+    const vistos = new Set();
+    let registros = (rows||[]).filter(r=>{
+      const key = r.diarista_id || r.groot_id || r.cpf || r.nome;
+      if(vistos.has(key)) return false;
+      vistos.add(key);
+      return true;
+    });
+
+    // Busca os dados mais atuais de cada diarista (nome, GROOT ID, empresa, cargo)
+    // direto do Banco de Diaristas, para não depender da "foto" salva no lançamento
+    // do dia — assim, se o GROOT ID for completado depois, já aparece atualizado aqui.
+    const ids = [...new Set(registros.map(r=>r.diarista_id).filter(Boolean))];
+    if(ids.length){
+      const { data: diaristasAtuais, error: errDiaristas } = await sb
+        .from('diaristas')
+        .select('id, nome, groot_id, empresa, cargo, cpf')
+        .in('id', ids);
+      if(!errDiaristas && diaristasAtuais){
+        const mapa = {};
+        diaristasAtuais.forEach(d=>{ mapa[d.id] = d; });
+        registros = registros.map(r=>{
+          const atual = r.diarista_id ? mapa[r.diarista_id] : null;
+          if(!atual) return r;
+          return {
+            ...r,
+            nome: atual.nome || r.nome,
+            groot_id: atual.groot_id || r.groot_id,
+            empresa: atual.empresa || r.empresa,
+            cargo: atual.cargo || r.cargo,
+            cpf: atual.cpf || r.cpf,
+          };
+        });
+      }
+    }
+
+    REGISTROS = registros;
+    renderLista();
+  }catch(err){
+    lista.innerHTML = `<div class="empty"><div class="ic">&#9888;</div>Erro ao carregar dados do banco.<br><small>${escapeHtml((err && err.message) || err)}</small></div>`;
+  }
 }
 
 function atualizarHistoricoBatidas(){
@@ -1035,20 +1066,49 @@ function renderQr(){
 }
 
 async function confirmarBatida(registro, tipo){
- const campo=tipo==='entrada'?'qr_entrada_batida_em':'qr_saida_batida_em';
- const agora=new Date().toISOString();
- DEMO_REGISTROS=DEMO_REGISTROS.map(r=>r.id===registro.id?{...r,[campo]:agora}:r);
- REGISTROS=REGISTROS.map(r=>r.id===registro.id?{...r,[campo]:agora}:r);
- playBeep();
- renderLista();
- const label=tipo==='entrada'?'Entrada registrada':'Saída registrada';
- if(FILTRADOS.length===0){falar(label+'. Tudo concluído.');fecharModal();}
- else{
-   if(currentIdx>=FILTRADOS.length) currentIdx=FILTRADOS.length-1;
-   const prox=FILTRADOS[currentIdx];
-   falar(`${label}. Próximo, ${nomeCurto(prox.nome)}.`);
-   renderQr();
- }
+  const btnConfirm = document.getElementById('btnConfirm');
+  btnConfirm.disabled = true;
+  btnConfirm.textContent = 'Salvando...';
+
+  const campo = tipo==='entrada' ? 'qr_entrada_batida_em' : 'qr_saida_batida_em';
+  const agora = new Date().toISOString();
+
+  // Parte 1: salvar no banco. Só aqui mostramos erro de "não foi possível salvar".
+  try{
+    const { error } = await sb
+      .from('historico_diarias')
+      .update({ [campo]: agora })
+      .eq('id', registro.id);
+    if(error) throw error;
+  }catch(err){
+    alert('Não foi possível salvar. Verifique a conexão e tente novamente.\n' + ((err && err.message) || err));
+    btnConfirm.disabled = false;
+    renderQr();
+    return;
+  }
+
+  // Parte 2: já salvou com sucesso — atualiza a tela. Erro aqui não deve
+  // ser confundido com falha ao salvar (o dado já está seguro no banco).
+  try{
+    REGISTROS = REGISTROS.map(r=> r.id===registro.id ? {...r, [campo]: agora} : r);
+    playBeep();
+    renderLista();
+    const label = tipo==='entrada' ? 'Entrada registrada' : 'Saída registrada';
+    if(FILTRADOS.length===0){
+      falar(label + '. Tudo concluído.');
+      fecharModal();
+    }else{
+      if(currentIdx>=FILTRADOS.length) currentIdx = FILTRADOS.length-1;
+      const prox = FILTRADOS[currentIdx];
+      falar(`${label}. Próximo, ${nomeCurto(prox.nome)}.`);
+      renderQr();
+    }
+  }catch(err){
+    // O registro já foi salvo com sucesso; só a atualização da tela falhou.
+    // Recarrega tudo do banco para garantir que a tela volte a ficar consistente.
+    console.error('Erro ao atualizar a tela após salvar:', err);
+    carregar();
+  }
 }
 
 function fecharModal(){
@@ -1059,9 +1119,23 @@ function fecharModal(){
 // entrada". Usa isso pra desfazer um teste ou um clique errado — pede confirmação porque apaga
 // o horário registrado.
 async function desfazerBatida(registro){
- if(!registro || !confirm(`Desfazer a batida fictícia de ${registro.nome}?`)) return;
- DEMO_REGISTROS=DEMO_REGISTROS.map(r=>r.id===registro.id?{...r,qr_entrada_batida_em:null,qr_saida_batida_em:null}:r);
- carregar();
+  if(!registro) return;
+  const jaTem = [];
+  if(registro.qr_entrada_batida_em) jaTem.push('entrada');
+  if(registro.qr_saida_batida_em) jaTem.push('saída');
+  const ok = confirm(`Desfazer a ${jaTem.join(' e ')} de ${registro.nome}?\nEla volta pra lista de pendente entrada.`);
+  if(!ok) return;
+  try{
+    const { error } = await sb
+      .from('historico_diarias')
+      .update({ qr_entrada_batida_em: null, qr_saida_batida_em: null })
+      .eq('id', registro.id);
+    if(error) throw error;
+    REGISTROS = REGISTROS.map(r=> r.id===registro.id ? {...r, qr_entrada_batida_em:null, qr_saida_batida_em:null} : r);
+    renderLista();
+  }catch(err){
+    alert('Não foi possível desfazer. Verifique a conexão e tente novamente.\n' + ((err && err.message) || err));
+  }
 }
 
 document.getElementById('btnPrev').addEventListener('click', ()=>{
@@ -1094,7 +1168,8 @@ aviso.classList.add('show');
 aviso.innerHTML=''; aviso.style.display='none';
 document.getElementById('dataFiltro').value = todayISO();
 carregar();
-// Demonstração local: sem atualização automática nem service worker.
+// Atualização periódica dos registros reais.
+setInterval(()=>{if(!document.getElementById('overlay').classList.contains('show'))carregar();},30000);
 </script>
 </body>
 </html>
